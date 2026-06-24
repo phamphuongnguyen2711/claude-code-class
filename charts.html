@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-Commerce Analytics Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: {
+              DEFAULT: '#090A14',
+              raised: '#111225',
+              card: '#161833',
+              border: '#1F2244',
+            },
+            primary: {
+              DEFAULT: '#DF6B33',
+              hover: '#E8824F',
+              light: '#DF6B3320',
+            },
+          },
+          fontFamily: {
+            heading: ['Poppins', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background-color: #090A14; color: #E2E8F0; min-height: 100vh; }
+
+    /* Ambient glow */
+    .glow-blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.10;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow-1 { width: 520px; height: 520px; background: #DF6B33; top: -200px; left: -150px; }
+    .glow-2 { width: 460px; height: 460px; background: #6B33DF; bottom: -200px; right: -120px; }
+
+    /* Cards */
+    .card {
+      background: linear-gradient(145deg, #161833 0%, #111225 100%);
+      border: 1px solid #1F2244;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    /* Stat card accent ring on hover */
+    .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 40px rgba(223,107,51,0.15), 0 0 0 1px rgba(223,107,51,0.25);
+    }
+
+    /* Divider */
+    .divider-line { background: #1F2244; }
+
+    /* Links */
+    a { color: #DF6B33; text-decoration: none; transition: color 0.2s; }
+    a:hover { color: #E8824F; }
+
+    /* Tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .data-table thead th {
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #8A92B8;
+      padding: 0.875rem 1rem;
+      background: rgba(31,34,68,0.35);
+      border-bottom: 1px solid #1F2244;
+    }
+    .data-table thead th:first-child { border-top-left-radius: 0.75rem; }
+    .data-table thead th:last-child { border-top-right-radius: 0.75rem; }
+    .data-table tbody td {
+      padding: 0.875rem 1rem;
+      font-size: 0.875rem;
+      color: #C0C4DC;
+      border-bottom: 1px solid #1F2244;
+    }
+    .data-table tbody tr:hover td { background: rgba(223,107,51,0.05); }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+    .data-table .num { font-variant-numeric: tabular-nums; font-weight: 500; color: #fff; }
+
+    /* Trend pills */
+    .trend-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+    .trend-up { background: rgba(52,211,153,0.12); color: #34D399; }
+    .trend-down { background: rgba(248,113,113,0.12); color: #F87171; }
+
+    /* Status badge */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .status-pill .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+    }
+    .status-active { background: rgba(52,211,153,0.12); color: #34D399; }
+    .status-active .dot { background: #34D399; box-shadow: 0 0 0 2px rgba(52,211,153,0.25); }
+    .status-pending { background: rgba(251,191,36,0.12); color: #FBBF24; }
+    .status-pending .dot { background: #FBBF24; box-shadow: 0 0 0 2px rgba(251,191,36,0.25); }
+    .status-paused { background: rgba(148,163,184,0.12); color: #94A3B8; }
+    .status-paused .dot { background: #94A3B8; box-shadow: 0 0 0 2px rgba(148,163,184,0.25); }
+
+    /* Period chip */
+    .period-chip {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      background: transparent;
+      color: #8A92B8;
+      border: 1px solid #1F2244;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .period-chip:hover { border-color: #DF6B33; color: #fff; }
+    .period-chip.active {
+      background: #DF6B33;
+      border-color: #DF6B33;
+      color: #fff;
+    }
+
+    /* Subtle animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-up { animation: fadeUp 0.5s ease-out both; }
+    .delay-100 { animation-delay: 0.05s; }
+    .delay-200 { animation-delay: 0.1s; }
+    .delay-300 { animation-delay: 0.15s; }
+    .delay-400 { animation-delay: 0.2s; }
+    .delay-500 { animation-delay: 0.25s; }
+    .delay-600 { animation-delay: 0.3s; }
+
+    /* Scrollbar styling for table wrapper */
+    .table-scroll::-webkit-scrollbar { height: 8px; }
+    .table-scroll::-webkit-scrollbar-track { background: #090A14; border-radius: 4px; }
+    .table-scroll::-webkit-scrollbar-thumb { background: #1F2244; border-radius: 4px; }
+    .table-scroll::-webkit-scrollbar-thumb:hover { background: #2A2F5C; }
+
+    /* Footer link */
+    .nav-link {
+      color: #C0C4DC;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: #DF6B33; }
+    .nav-link.active { color: #DF6B33; }
+
+    /* Chart container */
+    .chart-wrap { position: relative; width: 100%; }
+  </style>
+</head>
+<body class="antialiased">
+
+  <!-- Ambient glow blobs -->
+  <div class="glow-blob glow-1"></div>
+  <div class="glow-blob glow-2"></div>
+
+  <!-- Top nav -->
+  <header class="relative z-10 border-b border-surface-border bg-surface/80 backdrop-blur-sm sticky top-0">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10">
+          <i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>
+        </div>
+        <span class="font-heading font-bold text-white text-lg tracking-tight">NexDash</span>
+        <span class="hidden sm:inline-block text-xs text-gray-500 ml-2 font-body">E-Commerce Analytics</span>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-6 text-sm font-body">
+        <a href="#" class="nav-link active">Dashboard</a>
+        <a href="#orders" class="nav-link">Orders</a>
+        <a href="#products" class="nav-link">Products</a>
+        <a href="#campaigns" class="nav-link">Campaigns</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <button class="relative p-2 rounded-lg hover:bg-surface-card transition-colors" aria-label="Notifications">
+          <i data-lucide="bell" class="w-5 h-5 text-gray-400"></i>
+          <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary"></span>
+        </button>
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-hover flex items-center justify-center text-white text-sm font-semibold">
+          AM
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+    <!-- Page header -->
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6 animate-fade-up">
+      <div>
+        <h1 class="font-heading font-bold text-2xl sm:text-3xl text-white tracking-tight">
+          Business Overview
+        </h1>
+        <p class="text-sm text-gray-400 mt-1 font-body">
+          Sales, performance, and marketing metrics across your e-commerce store.
+        </p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button class="period-chip" data-period="7d">7 days</button>
+        <button class="period-chip active" data-period="30d">30 days</button>
+        <button class="period-chip" data-period="90d">90 days</button>
+        <button class="period-chip" data-period="12m">12 months</button>
+      </div>
+    </div>
+
+    <!-- KPI cards -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <!-- Revenue -->
+      <div class="card stat-card rounded-2xl p-4 sm:p-5 animate-fade-up delay-100">
+        <div class="flex items-start justify-between mb-3">
+          <div class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
+            <i data-lucide="dollar-sign" class="w-5 h-5 text-primary"></i>
+          </div>
+          <span class="trend-pill trend-up">
+            <i data-lucide="trending-up" class="w-3 h-3"></i> 12.5%
+          </span>
+        </div>
+        <p class="text-xs text-gray-500 font-body uppercase tracking-wider">Total Revenue</p>
+        <p class="font-heading font-bold text-xl sm:text-2xl text-white mt-1 tabular-nums">$284,950</p>
+        <p class="text-xs text-gray-500 font-body mt-1">vs. $253,240 last period</p>
+      </div>
+
+      <!-- Orders -->
+      <div class="card stat-card rounded-2xl p-4 sm:p-5 animate-fade-up delay-200">
+        <div class="flex items-start justify-between mb-3">
+          <div class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-500/10">
+            <i data-lucide="shopping-cart" class="w-5 h-5 text-blue-400"></i>
+          </div>
+          <span class="trend-pill trend-up">
+            <i data-lucide="trending-up" class="w-3 h-3"></i> 8.3%
+          </span>
+        </div>
+        <p class="text-xs text-gray-500 font-body uppercase tracking-wider">Orders</p>
+        <p class="font-heading font-bold text-xl sm:text-2xl text-white mt-1 tabular-nums">4,128</p>
+        <p class="text-xs text-gray-500 font-body mt-1">vs. 3,812 last period</p>
+      </div>
+
+      <!-- Customers -->
+      <div class="card stat-card rounded-2xl p-4 sm:p-5 animate-fade-up delay-300">
+        <div class="flex items-start justify-between mb-3">
+          <div class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/10">
+            <i data-lucide="users" class="w-5 h-5 text-emerald-400"></i>
+          </div>
+          <span class="trend-pill trend-up">
+            <i data-lucide="trending-up" class="w-3 h-3"></i> 15.2%
+          </span>
+        </div>
+        <p class="text-xs text-gray-500 font-body uppercase tracking-wider">New Customers</p>
+        <p class="font-heading font-bold text-xl sm:text-2xl text-white mt-1 tabular-nums">1,847</p>
+        <p class="text-xs text-gray-500 font-body mt-1">vs. 1,604 last period</p>
+      </div>
+
+      <!-- Conversion -->
+      <div class="card stat-card rounded-2xl p-4 sm:p-5 animate-fade-up delay-400">
+        <div class="flex items-start justify-between mb-3">
+          <div class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/10">
+            <i data-lucide="percent" class="w-5 h-5 text-amber-400"></i>
+          </div>
+          <span class="trend-pill trend-down">
+            <i data-lucide="trending-down" class="w-3 h-3"></i> 0.4%
+          </span>
+        </div>
+        <p class="text-xs text-gray-500 font-body uppercase tracking-wider">Conversion Rate</p>
+        <p class="font-heading font-bold text-xl sm:text-2xl text-white mt-1 tabular-nums">3.62%</p>
+        <p class="text-xs text-gray-500 font-body mt-1">vs. 3.66% last period</p>
+      </div>
+    </section>
+
+    <!-- Row 1: Revenue line chart + Channel bar chart -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <!-- Revenue & Orders trend (line) -->
+      <div class="card rounded-2xl p-4 sm:p-5 lg:col-span-2 animate-fade-up delay-300">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="font-heading font-bold text-lg text-white">Revenue & Orders Trend</h2>
+            <p class="text-xs text-gray-500 font-body mt-0.5">Daily performance over the last 30 days</p>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-body">
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-primary"></span>Revenue</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-400"></span>Orders</span>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height: 280px;">
+          <canvas id="revenueTrendChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Sales channel (doughnut) -->
+      <div class="card rounded-2xl p-4 sm:p-5 animate-fade-up delay-400">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="font-heading font-bold text-lg text-white">Sales Channels</h2>
+            <p class="text-xs text-gray-500 font-body mt-0.5">Revenue share by source</p>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height: 220px;">
+          <canvas id="channelChart"></canvas>
+        </div>
+        <ul class="mt-4 space-y-2 text-sm font-body">
+          <li class="flex items-center justify-between">
+            <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm bg-primary"></span>Website</span>
+            <span class="text-white tabular-nums">$128,420 · 45%</span>
+          </li>
+          <li class="flex items-center justify-between">
+            <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-400"></span>Mobile App</span>
+            <span class="text-white tabular-nums">$85,485 · 30%</span>
+          </li>
+          <li class="flex items-center justify-between">
+            <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span>Marketplace</span>
+            <span class="text-white tabular-nums">$49,866 · 17%</span>
+          </li>
+          <li class="flex items-center justify-between">
+            <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm bg-blue-400"></span>Social</span>
+            <span class="text-white tabular-nums">$21,179 · 8%</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Row 2: Marketing metrics + Category bar chart -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <!-- Marketing KPIs -->
+      <div class="card rounded-2xl p-4 sm:p-5 animate-fade-up delay-400">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="font-heading font-bold text-lg text-white">Marketing Funnel</h2>
+            <p class="text-xs text-gray-500 font-body mt-0.5">Acquisition to purchase</p>
+          </div>
+          <div class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-pink-500/10">
+            <i data-lucide="megaphone" class="w-5 h-5 text-pink-400"></i>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <!-- Visitors -->
+          <div>
+            <div class="flex items-center justify-between text-sm font-body mb-1.5">
+              <span class="text-gray-300">Visitors</span>
+              <span class="text-white tabular-nums">114,520</span>
+            </div>
+            <div class="h-2 rounded-full bg-surface overflow-hidden">
+              <div class="h-full rounded-full bg-gradient-to-r from-primary to-primary-hover" style="width: 100%;"></div>
+            </div>
+          </div>
+          <!-- Add to cart -->
+          <div>
+            <div class="flex items-center justify-between text-sm font-body mb-1.5">
+              <span class="text-gray-300">Add to Cart</span>
+              <span class="text-white tabular-nums">23,840 <span class="text-xs text-gray-500">(20.8%)</span></span>
+            </div>
+            <div class="h-2 rounded-full bg-surface overflow-hidden">
+              <div class="h-full rounded-full bg-amber-400" style="width: 20.8%;"></div>
+            </div>
+          </div>
+          <!-- Checkout -->
+          <div>
+            <div class="flex items-center justify-between text-sm font-body mb-1.5">
+              <span class="text-gray-300">Checkout</span>
+              <span class="text-white tabular-nums">7,115 <span class="text-xs text-gray-500">(6.2%)</span></span>
+            </div>
+            <div class="h-2 rounded-full bg-surface overflow-hidden">
+              <div class="h-full rounded-full bg-blue-400" style="width: 6.2%;"></div>
+            </div>
+          </div>
+          <!-- Purchase -->
+          <div>
+            <div class="flex items-center justify-between text-sm font-body mb-1.5">
+              <span class="text-gray-300">Purchase</span>
+              <span class="text-white tabular-nums">4,146 <span class="text-xs text-emerald-400">(3.62%)</span></span>
+            </div>
+            <div class="h-2 rounded-full bg-surface overflow-hidden">
+              <div class="h-full rounded-full bg-emerald-400" style="width: 3.62%;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="divider-line h-px my-5"></div>
+        <div class="grid grid-cols-2 gap-3 text-sm font-body">
+          <div>
+            <p class="text-xs text-gray-500">Cart Abandonment</p>
+            <p class="text-white font-semibold tabular-nums mt-0.5">70.2%</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">Avg. Order Value</p>
+            <p class="text-white font-semibold tabular-nums mt-0.5">$68.72</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">ROAS</p>
+            <p class="text-white font-semibold tabular-nums mt-0.5">4.32x</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">CAC</p>
+            <p class="text-white font-semibold tabular-nums mt-0.5">$15.90</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category bar chart -->
+      <div class="card rounded-2xl p-4 sm:p-5 lg:col-span-2 animate-fade-up delay-500">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="font-heading font-bold text-lg text-white">Revenue by Category</h2>
+            <p class="text-xs text-gray-500 font-body mt-0.5">Top product categories this month</p>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height: 320px;">
+          <canvas id="categoryChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Row 3: Traffic source horizontal bar + Customer acquisition area chart -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <!-- Traffic sources -->
+      <div class="card rounded-2xl p-4 sm:p-5 animate-fade-up delay-500">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="font-heading font-bold text-lg text-white">Traffic Sources</h2>
+            <p class="text-xs text-gray-500 font-body mt-0.5">Sessions by channel</p>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height: 260px;">
+          <canvas id="trafficChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Customer acquisition -->
+      <div class="card rounded-2xl p-4 sm:p-5 animate-fade-up delay-600">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="font-heading font-bold text-lg text-white">Customer Acquisition</h2>
+            <p class="text-xs text-gray-500 font-body mt-0.5">New vs returning customers (12 months)</p>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height: 260px;">
+          <canvas id="acquisitionChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent orders table -->
+    <section id="orders" class="card rounded-2xl p-4 sm:p-5 mb-6 animate-fade-up delay-500">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div>
+          <h2 class="font-heading font-bold text-lg text-white">Recent Orders</h2>
+          <p class="text-xs text-gray-500 font-body mt-0.5">Latest 8 orders from your store</p>
+        </div>
+        <a href="#" class="text-xs font-semibold hover:underline flex items-center gap-1 self-start">
+          View all orders
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+        </a>
+      </div>
+
+      <div class="table-scroll overflow-x-auto rounded-xl border border-surface-border">
+        <table class="data-table min-w-[720px]">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Product</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">#ORD-39214</td>
+              <td>Sarah Johnson</td>
+              <td>Wireless Headphones Pro</td>
+              <td>Jun 24, 2026</td>
+              <td class="num">$249.00</td>
+              <td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td>
+            </tr>
+            <tr>
+              <td class="num">#ORD-39213</td>
+              <td>Michael Chen</td>
+              <td>Smart Watch Series 7</td>
+              <td>Jun 24, 2026</td>
+              <td class="num">$399.00</td>
+              <td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td>
+            </tr>
+            <tr>
+              <td class="num">#ORD-39212</td>
+              <td>Emma Williams</td>
+              <td>Mechanical Keyboard RGB</td>
+              <td>Jun 23, 2026</td>
+              <td class="num">$159.99</td>
+              <td><span class="status-pill status-pending"><span class="dot"></span>Pending</span></td>
+            </tr>
+            <tr>
+              <td class="num">#ORD-39211</td>
+              <td>David Martinez</td>
+              <td>Laptop Stand Aluminum</td>
+              <td>Jun 23, 2026</td>
+              <td class="num">$79.50</td>
+              <td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td>
+            </tr>
+            <tr>
+              <td class="num">#ORD-39210</td>
+              <td>Lisa Anderson</td>
+              <td>USB-C Hub 7-in-1</td>
+              <td>Jun 23, 2026</td>
+              <td class="num">$49.90</td>
+              <td><span class="status-pill status-paused"><span class="dot"></span>Refunded</span></td>
+            </tr>
+            <tr>
+              <td class="num">#ORD-39209</td>
+              <td>James Wilson</td>
+              <td>Bluetooth Speaker Mini</td>
+              <td>Jun 22, 2026</td>
+              <td class="num">$89.00</td>
+              <td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td>
+            </tr>
+            <tr>
+              <td class="num">#ORD-39208</td>
+              <td>Sophia Brown</td>
+              <td>4K Webcam Studio</td>
+              <td>Jun 22, 2026</td>
+              <td class="num">$179.00</td>
+              <td><span class="status-pill status-active"><span class="dot"></span>Paid</span></td>
+            </tr>
+            <tr>
+              <td class="num">#ORD-39207</td>
+              <td>Robert Taylor</td>
+              <td>Gaming Mouse Wireless</td>
+              <td>Jun 21, 2026</td>
+              <td class="num">$69.99</td>
+              <td><span class="status-pill status-pending"><span class="dot"></span>Pending</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Bottom row: Top products table + Marketing campaigns table -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <!-- Top products -->
+      <div id="products" class="card rounded-2xl p-4 sm:p-5 animate-fade-up delay-600">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="font-heading font-bold text-lg text-white">Top Selling Products</h2>
+            <p class="text-xs text-gray-500 font-body mt-0.5">By revenue this month</p>
+          </div>
+        </div>
+        <div class="table-scroll overflow-x-auto rounded-xl border border-surface-border">
+          <table class="data-table min-w-[480px]">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Units</th>
+                <th>Revenue</th>
+                <th>Trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-white font-medium">Wireless Headphones Pro</td>
+                <td class="num">412</td>
+                <td class="num">$102,588</td>
+                <td><span class="trend-pill trend-up"><i data-lucide="trending-up" class="w-3 h-3"></i> 18%</span></td>
+              </tr>
+              <tr>
+                <td class="text-white font-medium">Smart Watch Series 7</td>
+                <td class="num">286</td>
+                <td class="num">$114,114</td>
+                <td><span class="trend-pill trend-up"><i data-lucide="trending-up" class="w-3 h-3"></i> 12%</span></td>
+              </tr>
+              <tr>
+                <td class="text-white font-medium">4K Webcam Studio</td>
+                <td class="num">198</td>
+                <td class="num">$35,442</td>
+                <td><span class="trend-pill trend-up"><i data-lucide="trending-up" class="w-3 h-3"></i> 6%</span></td>
+              </tr>
+              <tr>
+                <td class="text-white font-medium">Mechanical Keyboard RGB</td>
+                <td class="num">174</td>
+                <td class="num">$27,838</td>
+                <td><span class="trend-pill trend-down"><i data-lucide="trending-down" class="w-3 h-3"></i> 3%</span></td>
+              </tr>
+              <tr>
+                <td class="text-white font-medium">Bluetooth Speaker Mini</td>
+                <td class="num">156</td>
+                <td class="num">$13,884</td>
+                <td><span class="trend-pill trend-up"><i data-lucide="trending-up" class="w-3 h-3"></i> 9%</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Marketing campaigns -->
+      <div id="campaigns" class="card rounded-2xl p-4 sm:p-5 animate-fade-up delay-600">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="font-heading font-bold text-lg text-white">Active Campaigns</h2>
+            <p class="text-xs text-gray-500 font-body mt-0.5">Marketing performance summary</p>
+          </div>
+        </div>
+        <div class="table-scroll overflow-x-auto rounded-xl border border-surface-border">
+          <table class="data-table min-w-[480px]">
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Spend</th>
+                <th>ROAS</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-white font-medium">Summer Sale 2026</td>
+                <td class="num">$8,420</td>
+                <td class="num">5.1x</td>
+                <td><span class="status-pill status-active"><span class="dot"></span>Active</span></td>
+              </tr>
+              <tr>
+                <td class="text-white font-medium">New Customer Welcome</td>
+                <td class="num">$3,250</td>
+                <td class="num">6.4x</td>
+                <td><span class="status-pill status-active"><span class="dot"></span>Active</span></td>
+              </tr>
+              <tr>
+                <td class="text-white font-medium">Retargeting — Cart Abandoners</td>
+                <td class="num">$2,180</td>
+                <td class="num">7.8x</td>
+                <td><span class="status-pill status-active"><span class="dot"></span>Active</span></td>
+              </tr>
+              <tr>
+                <td class="text-white font-medium">Brand Awareness Q2</td>
+                <td class="num">$4,950</td>
+                <td class="num">2.3x</td>
+                <td><span class="status-pill status-pending"><span class="dot"></span>Review</span></td>
+              </tr>
+              <tr>
+                <td class="text-white font-medium">Loyalty Program Push</td>
+                <td class="num">$1,640</td>
+                <td class="num">4.6x</td>
+                <td><span class="status-pill status-paused"><span class="dot"></span>Paused</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs text-gray-500 font-body py-6">
+      <p>© 2026 NexDash Analytics · Demo data for illustration</p>
+      <p class="mt-2">
+        <a href="login.html" class="hover:underline">Sign in</a>
+        <span class="mx-2">·</span>
+        <a href="Register.html" class="hover:underline">Create account</a>
+      </p>
+    </footer>
+  </main>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Common Chart.js defaults
+    Chart.defaults.font.family = "Inter, sans-serif";
+    Chart.defaults.color = "#8A92B8";
+    Chart.defaults.borderColor = "#1F2244";
+
+    // Shared dataset generator: last 30 days labels
+    const today = new Date();
+    const last30 = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() - (29 - i));
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    // 1) Revenue & Orders trend (line)
+    const revenueCtx = document.getElementById('revenueTrendChart').getContext('2d');
+    const revenueGradient = revenueCtx.createLinearGradient(0, 0, 0, 280);
+    revenueGradient.addColorStop(0, 'rgba(223,107,51,0.35)');
+    revenueGradient.addColorStop(1, 'rgba(223,107,51,0)');
+    const ordersGradient = revenueCtx.createLinearGradient(0, 0, 0, 280);
+    ordersGradient.addColorStop(0, 'rgba(52,211,153,0.25)');
+    ordersGradient.addColorStop(1, 'rgba(52,211,153,0)');
+
+    const revenueData = [6200, 7100, 6800, 7400, 8100, 7600, 8900, 9200, 8700, 9500, 10100, 9800, 10500, 11200, 10800, 11500, 12200, 11900, 12600, 13100, 12800, 13400, 13900, 14200, 13800, 14500, 15100, 14800, 15400, 16050];
+    const ordersData = [92, 104, 98, 112, 121, 115, 134, 142, 128, 148, 156, 149, 163, 175, 168, 182, 192, 186, 201, 213, 205, 218, 228, 234, 225, 241, 252, 246, 258, 271];
+
+    new Chart(revenueCtx, {
+      type: 'line',
+      data: {
+        labels: last30,
+        datasets: [
+          {
+            label: 'Revenue ($)',
+            data: revenueData,
+            borderColor: '#DF6B33',
+            backgroundColor: revenueGradient,
+            borderWidth: 2.5,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#DF6B33',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+            yAxisID: 'y',
+          },
+          {
+            label: 'Orders',
+            data: ordersData,
+            borderColor: '#34D399',
+            backgroundColor: ordersGradient,
+            borderWidth: 2.5,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#34D399',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+            yAxisID: 'y1',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#161833',
+            borderColor: '#1F2244',
+            borderWidth: 1,
+            padding: 12,
+            titleColor: '#fff',
+            bodyColor: '#C0C4DC',
+            cornerRadius: 8,
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { maxTicksLimit: 8, color: '#8A92B8' },
+          },
+          y: {
+            position: 'left',
+            grid: { color: 'rgba(31,34,68,0.5)' },
+            ticks: {
+              color: '#8A92B8',
+              callback: (v) => '$' + (v / 1000).toFixed(0) + 'k',
+            },
+          },
+          y1: {
+            position: 'right',
+            grid: { display: false },
+            ticks: { color: '#8A92B8' },
+          },
+        },
+      },
+    });
+
+    // 2) Sales channels (doughnut)
+    const channelCtx = document.getElementById('channelChart').getContext('2d');
+    new Chart(channelCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Website', 'Mobile App', 'Marketplace', 'Social'],
+        datasets: [{
+          data: [45, 30, 17, 8],
+          backgroundColor: ['#DF6B33', '#34D399', '#FBBF24', '#60A5FA'],
+          borderColor: '#111225',
+          borderWidth: 3,
+          hoverOffset: 8,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#161833',
+            borderColor: '#1F2244',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              label: (ctx) => ` ${ctx.label}: ${ctx.parsed}%`,
+            },
+          },
+        },
+      },
+    });
+
+    // 3) Revenue by category (horizontal bar)
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(categoryCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Electronics', 'Fashion', 'Home & Living', 'Beauty', 'Sports', 'Books'],
+        datasets: [{
+          label: 'Revenue ($)',
+          data: [98450, 64200, 48100, 32900, 25800, 15500],
+          backgroundColor: [
+            'rgba(223,107,51,0.85)',
+            'rgba(223,107,51,0.70)',
+            'rgba(223,107,51,0.55)',
+            'rgba(223,107,51,0.45)',
+            'rgba(223,107,51,0.35)',
+            'rgba(223,107,51,0.25)',
+          ],
+          borderColor: '#DF6B33',
+          borderWidth: 1,
+          borderRadius: 6,
+          barThickness: 22,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#161833',
+            borderColor: '#1F2244',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              label: (ctx) => ` $${ctx.parsed.x.toLocaleString()}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(31,34,68,0.5)' },
+            ticks: {
+              color: '#8A92B8',
+              callback: (v) => '$' + (v / 1000) + 'k',
+            },
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: '#C0C4DC' },
+          },
+        },
+      },
+    });
+
+    // 4) Traffic sources (horizontal bar)
+    const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+    new Chart(trafficCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Organic Search', 'Direct', 'Social Media', 'Email', 'Paid Ads', 'Referral'],
+        datasets: [{
+          label: 'Sessions',
+          data: [38420, 26840, 19210, 12450, 9890, 6710],
+          backgroundColor: ['#DF6B33', '#E8824F', '#F59E0B', '#34D399', '#60A5FA', '#A78BFA'],
+          borderRadius: 6,
+          barThickness: 18,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#161833',
+            borderColor: '#1F2244',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              label: (ctx) => ` ${ctx.parsed.x.toLocaleString()} sessions`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(31,34,68,0.5)' },
+            ticks: { color: '#8A92B8', callback: (v) => (v / 1000) + 'k' },
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: '#C0C4DC' },
+          },
+        },
+      },
+    });
+
+    // 5) Customer acquisition (stacked area, 12 months)
+    const acquisitionCtx = document.getElementById('acquisitionChart').getContext('2d');
+    const months = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const newCust = [820, 910, 1050, 1180, 1340, 1620, 1410, 1290, 1480, 1620, 1750, 1847];
+    const returning = [420, 480, 540, 620, 740, 880, 790, 720, 810, 890, 950, 1024];
+
+    const newGradient = acquisitionCtx.createLinearGradient(0, 0, 0, 260);
+    newGradient.addColorStop(0, 'rgba(223,107,51,0.55)');
+    newGradient.addColorStop(1, 'rgba(223,107,51,0.05)');
+    const retGradient = acquisitionCtx.createLinearGradient(0, 0, 0, 260);
+    retGradient.addColorStop(0, 'rgba(96,165,250,0.5)');
+    retGradient.addColorStop(1, 'rgba(96,165,250,0.05)');
+
+    new Chart(acquisitionCtx, {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [
+          {
+            label: 'New customers',
+            data: newCust,
+            borderColor: '#DF6B33',
+            backgroundColor: newGradient,
+            borderWidth: 2.5,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#DF6B33',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+          },
+          {
+            label: 'Returning',
+            data: returning,
+            borderColor: '#60A5FA',
+            backgroundColor: retGradient,
+            borderWidth: 2.5,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#60A5FA',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            align: 'end',
+            labels: {
+              boxWidth: 10,
+              boxHeight: 10,
+              usePointStyle: true,
+              pointStyle: 'circle',
+              color: '#C0C4DC',
+              padding: 12,
+              font: { size: 11 },
+            },
+          },
+          tooltip: {
+            backgroundColor: '#161833',
+            borderColor: '#1F2244',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#8A92B8' },
+          },
+          y: {
+            stacked: true,
+            grid: { color: 'rgba(31,34,68,0.5)' },
+            ticks: { color: '#8A92B8' },
+          },
+        },
+      },
+    });
+
+    // Period chip toggle (visual only)
+    document.querySelectorAll('.period-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.period-chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+    });
+
+    // Re-initialize lucide icons after any innerHTML changes (if needed)
+    lucide.createIcons();
+  </script>
+</body>
+</html>
